@@ -424,7 +424,7 @@ get_results_timeseries <- function(report.file){
     xx <- subset(report.file$timeseries,
                  select=c("Yr","SpawnBio", "Recruit_0"))
 				 
-	xx$`F:_1` = rowSums(report.file$timeseries[grep(pattern = 'F:_', x = colnames(report.file$timeseries))]) # this is to account for the Fs of both or more areas
+	xx$`F:_1` = rowMeans(report.file$timeseries[grep(pattern = 'F:_', x = colnames(report.file$timeseries))]) # this is to account for the Fs of both or more areas
 
     xx <- xx[xx$Yr %in% years,]
     names(xx) <- gsub(":_1","", names(xx))

@@ -344,7 +344,7 @@ ss3sim_base <- function(iterations, scenarios, f_params,
          }
          listNsamp = list() # sd info
          for(kk in seq_along(iFleet)) {
-            tmpList = rep(lcomp_params_2$sds_obs[kk], times = jFleet[[kk]])
+            tmpList = rep(lcomp_params_2$Nsamp[kk], times = jFleet[[kk]])
             listNsamp = c(listNsamp, tmpList)
          }
          # For OM:
@@ -365,7 +365,7 @@ ss3sim_base <- function(iterations, scenarios, f_params,
          }
          listNsamp = list() # sd info
          for(kk in seq_along(iFleet)) {
-            tmpList = rep(agecomp_params_2$sds_obs[kk], times = jFleet[[kk]])
+            tmpList = rep(agecomp_params_2$Nsamp[kk], times = jFleet[[kk]])
             listNsamp = c(listNsamp, tmpList)
          }
          # For OM:
@@ -399,10 +399,14 @@ ss3sim_base <- function(iterations, scenarios, f_params,
       # check qs are correct.
       qpars_OM <- r4ss::SS_parlines(file.path(sc,i, "om", "om.ctl"))
       qpars_OM <- qpars_OM[grep("^LnQ", qpars_OM$Label), ]
-      qinOM <- utils::type.convert(gsub("[a-zA-Z\\(\\)_]", "", qpars_OM$Label))
+      #qinOM <- utils::type.convert(gsub("[a-zA-Z\\(\\)_]", "", qpars_OM$Label))
+
+      qFleetNames = datfile.modified$fleetinfo$fleetname[index_params$fleets]
+      findFleet = unlist(lapply(X = qFleetNames, FUN = grep, x = qpars_OM$Label))
       #TODO: can get rid of this check if it is done earlier on the original
       # EM and OM files read in.
-      if (any(!(index_params$fleets %in% qinOM))) {
+      #if (any(!(index_params$fleets %in% qinOM))) {
+      if (length(findFleet) == 0) {
         stop("There are user-selected fleets with indices that do not have q ",
              "parameters specified in the OM. User selected fleets: ",
              paste(index_params$fleets, collapse = ", "),
@@ -658,19 +662,43 @@ ss3sim_base <- function(iterations, scenarios, f_params,
       # it is changing something in the estimation model?
       qpars <- r4ss::SS_parlines(file.path(sc, i, "em", "em.ctl"))
       qpars <- qpars[grep("^LnQ", qpars$Label), ]
-      qinmodel <- utils::type.convert(gsub("[a-zA-Z\\(\\)_]", "", qpars$Label))
-      for (irem in qinmodel) {
-        if (irem %in% unique(dat_list$CPUE$index)) next
-          remove_q_ctl(irem,
-            ctl.in = file.path(sc, i, "em", "em.ctl"),
-            ctl.out = file.path(sc, i, "em", "em.ctl"),
-            overwrite = TRUE)
-      }
+
+
+      # qinmodel <- utils::type.convert(gsub("[a-zA-Z\\(\\)_]", "", qpars$Label))
+      # for (irem in qinmodel) {
+      #   if (irem %in% unique(dat_list$CPUE$index)) next
+      #     remove_q_ctl(irem,
+      #       ctl.in = file.path(sc, i, "em", "em.ctl"),
+      #       ctl.out = file.path(sc, i, "em", "em.ctl"),
+      #       overwrite = TRUE)
+      # }
+      # #TODO: can get rid of this check if it is done earlier on the original
+      # # EM and OM files read in.
+      # if (any(!unique(dat_list$CPUE$index) %in% qinmodel)) {
+      #   stop("Add q parameters to your EM for all fleets with an index.")
+      # }
+
+
+      qFleetNames = dat_list$fleetinfo$fleetname[index_params$fleets]
+      findFleet = unlist(lapply(X = qFleetNames, FUN = grep, x = qpars$Label))
       #TODO: can get rid of this check if it is done earlier on the original
       # EM and OM files read in.
-      if (any(!unique(dat_list$CPUE$index) %in% qinmodel)) {
+      #if (any(!(index_params$fleets %in% qinOM))) {
+      if (length(findFleet) == 0) {
         stop("Add q parameters to your EM for all fleets with an index.")
       }
+      # Remove q setup lines and parlines for fleets that aren't being used as
+      # an index of abundance. TODO: perhaps make into a function?
+      remove_fleetnames <- dat_list$fleetnames[-index_params$fleets]
+      # get list of remove_fleetnames
+      # first param is fleetnames to remove
+      if(length(remove_fleetnames) > 0) {
+        for(n in remove_fleetnames) {
+          remove_q_ctl(n, ctl.in = file.path(sc, i, "em", "em.ctl"), overwrite = TRUE,
+                              ctl.out = file.path(sc, i, "em", "em.ctl"))
+        }
+      }
+
 
       ss_version <- get_ss_ver_dl(dat_list)
       SS_writedat(datlist = dat_list, outfile = file.path(sc, i, "em", "ss3.dat"),

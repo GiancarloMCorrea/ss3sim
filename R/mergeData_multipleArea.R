@@ -188,7 +188,9 @@ mergeData_multipleArea = function(iniDat, transformFleets, area_fleet_em, FleetI
 
   data_1area$fleetinfo1 = data_2area$fleetinfo1[, FleetFinder]
   colnames(data_1area$fleetinfo1) = area_fleet_em$fleetname
-  data_1area$fleetinfo1['areas', ] = area_fleet_em$area
+  tmpMat = as.matrix(data_1area$fleetinfo1)
+  tmpMat[2, ] = area_fleet_em$area
+  data_1area$fleetinfo1 = as.data.frame(tmpMat)
 
   data_1area$fleetinfo2 = data_2area$fleetinfo2[, FleetFinder]
   colnames(data_1area$fleetinfo2) = area_fleet_em$fleetname
