@@ -422,9 +422,18 @@ get_results_timeseries <- function(report.file){
                                       TRUE, 0,
                                          report.file$nforecastyears))
     xx <- subset(report.file$timeseries,
-                 select=c("Yr","SpawnBio", "Recruit_0", "F:_1"))
+                 select=c("Yr","SpawnBio", "Recruit_0"))
+				 
+	xx$`F:_1` = rowSums(report.file$timeseries[grep(pattern = 'F:_', x = colnames(report.file$timeseries))]) # this is to account for the Fs of both or more areas
+
     xx <- xx[xx$Yr %in% years,]
     names(xx) <- gsub(":_1","", names(xx))
+	
+	years_tmp = unique(xx$Yr)
+    xx = rowsum(x = xx, group = xx$Yr, reorder = TRUE) # merge in one df (sum). now continue as normal
+    xx$Yr = years_tmp
+
+	
     # Get SPR from derived_quants
     spr <- report.file$derived_quants[grep("SPRratio_",
       report.file$derived_quants[,

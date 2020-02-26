@@ -339,11 +339,11 @@ check_data <- function(x) {
       "\nSee the SS manual.")
   }
 
-  if (!identical(x$N_areas, 1))
-    stop("N_areas in the SS data file must be set to 1.")
+  #if (!identical(x$N_areas, 1))
+  #  stop("N_areas in the SS data file must be set to 1.")
 
-  if (!identical(x$areas, rep(1, x$Nfleets)))
-    stop("_area_assignments_for_each_fishery_and_survey must be set to 1",
-      " for all fleets in the SS data file.")
+  #if (!identical(x$areas, rep(1, x$Nfleets)))
+  #  stop("_area_assignments_for_each_fishery_and_survey must be set to 1",
+  #    " for all fleets in the SS data file.")
 }
 

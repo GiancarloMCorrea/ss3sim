@@ -173,6 +173,7 @@ ss3sim_base <- function(iterations, scenarios, f_params,
   user_recdevs = NULL, user_recdevs_warn = TRUE,
   bias_adjust = FALSE, hess_always = FALSE,
   print_logfile = TRUE, sleep = 0, seed = 21,
+  transformFleets = NULL, area_fleet_em = NULL,
   ...) {
 
   # In case ss3sim_base is stopped before finishing:
@@ -236,6 +237,7 @@ ss3sim_base <- function(iterations, scenarios, f_params,
                  ctl_file_out = file.path(sc,i, "om", "om.ctl")
                  )
       }
+      
       # The following section adds recruitment deviations
       # First, pull in sigma R from the operating model
       sigmar <- get_sigmar(file.path(sc, i, "om", "om"))
@@ -276,6 +278,109 @@ ss3sim_base <- function(iterations, scenarios, f_params,
       # the OM one last time. Then we'll sample from the expected values
       # with error.
 
+      # Here first part for multiple areas:
+      if(!is.null(transformFleets) & is.null(area_fleet_em)) {
+        stop('For multiple areas, transformFleets and fleet_area_em should be specified.')
+      }
+
+      if(is.null(transformFleets) & !is.null(area_fleet_em)) {
+        stop('For multiple areas, transformFleets and fleet_area_em should be specified.')
+      }
+      
+      activateMultipleAreas = !is.null(transformFleets) & !is.null(area_fleet_em)
+      if(length(transformFleets) == length(unlist(transformFleets))) {
+         activateMultipleAreas = FALSE
+        warning('Looks like om and em have the same number of areas. Order of fleets will be kept.')
+      }
+
+      if(activateMultipleAreas) {
+
+         # Here we save the lists provided for the EM (used later). 
+         index_params_2 = index_params
+         lcomp_params_2 = lcomp_params
+         agecomp_params_2 = agecomp_params
+
+        # Here we create new ()_params lists (for OMs)
+
+        # First: create a index to identify fleets for EMs and OMs
+        nFleetIndex = lapply(X = transformFleets, FUN = length)
+        tmpFleetIndex = as.vector(cumsum(nFleetIndex))
+        FleetIndex = list()
+        counter = 1
+        for(kj in seq_along(nFleetIndex)) { 
+          FleetIndex[[kj]] = counter:tmpFleetIndex[kj]
+          counter = counter + nFleetIndex[[kj]] 
+        }
+        names(FleetIndex) = names(nFleetIndex)
+
+
+         # Create Index Parameters:
+         iFleet = FleetIndex[area_fleet_em[index_params_2$fleets, 'fleetname']] # this might be length > 1
+         jFleet = nFleetIndex[area_fleet_em[index_params_2$fleets, 'fleetname']]
+
+         listYears = list() # years info
+         for(kk in seq_along(iFleet)) {
+            tmpList = rep(index_params_2$years[kk], times = jFleet[[kk]])
+            listYears = c(listYears, tmpList)
+         }
+         listSd = list() # sd info
+         for(kk in seq_along(iFleet)) {
+            tmpList = rep(index_params_2$sds_obs[kk], times = jFleet[[kk]])
+            listSd = c(listSd, tmpList)
+         }
+         # For OM:
+         index_params = list(fleets = as.vector(unlist(iFleet)),
+                             years = listYears,
+                             sds_obs = listSd)
+
+        # Create Lcomp Parameters:
+         iFleet = FleetIndex[area_fleet_em[lcomp_params_2$fleets, 'fleetname']] # this might be length > 1
+         jFleet = nFleetIndex[area_fleet_em[lcomp_params_2$fleets, 'fleetname']]
+
+         listYears = list() # years info
+         for(kk in seq_along(iFleet)) {
+            tmpList = rep(lcomp_params_2$years[kk], times = jFleet[[kk]])
+            listYears = c(listYears, tmpList)
+         }
+         listNsamp = list() # sd info
+         for(kk in seq_along(iFleet)) {
+            tmpList = rep(lcomp_params_2$sds_obs[kk], times = jFleet[[kk]])
+            listNsamp = c(listNsamp, tmpList)
+         }
+         # For OM:
+         lcomp_params = list(fleets = as.vector(unlist(iFleet)),
+                             Nsamp = listNsamp,
+                             years = listYears,
+                             lengthbin_vector = NULL, # bin vector not implemented yet
+                             cpar = rep(NA, times = length(unlist(iFleet)))) # cpar here is fake, it does not matter
+
+        # Create Agecomp Parameters:
+         iFleet = FleetIndex[area_fleet_em[agecomp_params_2$fleets, 'fleetname']] # this might be length > 1
+         jFleet = nFleetIndex[area_fleet_em[agecomp_params_2$fleets, 'fleetname']]
+
+         listYears = list() # years info
+         for(kk in seq_along(iFleet)) {
+            tmpList = rep(agecomp_params_2$years[kk], times = jFleet[[kk]])
+            listYears = c(listYears, tmpList)
+         }
+         listNsamp = list() # sd info
+         for(kk in seq_along(iFleet)) {
+            tmpList = rep(agecomp_params_2$sds_obs[kk], times = jFleet[[kk]])
+            listNsamp = c(listNsamp, tmpList)
+         }
+         # For OM:
+         agecomp_params = list(fleets = as.vector(unlist(iFleet)),
+                             Nsamp = listNsamp,
+                             years = listYears,
+                             agebin_vector = NULL, # bin vector not implemented yet
+                             cpar = rep(NA, times = length(unlist(iFleet)))) # cpar here is fake, it does not matter
+
+         # Info for data in OMs is ready!
+
+      }
+
+
+      
       ## This returns a superset of all years/fleets/data types needed to
       ## do sampling.
       data_args <- calculate_data_units(
@@ -349,6 +454,13 @@ ss3sim_base <- function(iterations, scenarios, f_params,
                      sc, "-",i, ": is something wrong with initial model files?")
       expdata <- r4ss::SS_readdat(file.path(sc, i, "om", "data.ss_new"),
         section = 2, verbose = FALSE)
+
+      # Here merge data create by OM to be used in EM:
+      if(activateMultipleAreas) { 
+        expdata = mergeData_multipleArea(iniDat = expdata, transformFleets = transformFleets,
+                                         area_fleet_em = area_fleet_em, FleetIndex = FleetIndex) 
+      } 
+
       #TODO: rather than write expdata to file: dat_list <- expdata; rm(expdata)
       r4ss::SS_writedat(expdata, file.path(sc, i, "em", "ss3.dat"),
         overwrite = TRUE, verbose = FALSE)
@@ -359,6 +471,12 @@ ss3sim_base <- function(iterations, scenarios, f_params,
       # todo: use expdata rather than reading in the file again
       dat_list <- SS_readdat(file.path(sc, i, "em", "ss3.dat"),
                              version = NULL, verbose = FALSE)
+
+      # Replace the correct ()_params info for EM:
+      if(activateMultipleAreas) { 
+        index_params <- index_params_2
+      }
+
       ## Survey biomass index
       index_params <- add_nulls(index_params, c("fleets", "years", "sds_obs"))
 
@@ -368,6 +486,11 @@ ss3sim_base <- function(iterations, scenarios, f_params,
                      fleets          = fleets,
                      years           = years,
                      sds_obs         = sds_obs))
+
+      # Replace the correct ()_params info for EM:
+      if(activateMultipleAreas) { 
+        lcomp_params <- lcomp_params_2
+      }
 
       ## Add error in the length comp data
       if(!is.null(lcomp_params$fleets)){
@@ -381,6 +504,11 @@ ss3sim_base <- function(iterations, scenarios, f_params,
                             years            = years,
                             cpar             = cpar,
                             ESS              = ESS))
+      }
+
+      # Replace the correct ()_params info for EM:
+      if(activateMultipleAreas) { 
+        agecomp_params <- agecomp_params_2
       }
 
       ## Add error in the age comp data. Need to do this last since other
@@ -532,7 +660,7 @@ ss3sim_base <- function(iterations, scenarios, f_params,
       qpars <- qpars[grep("^LnQ", qpars$Label), ]
       qinmodel <- utils::type.convert(gsub("[a-zA-Z\\(\\)_]", "", qpars$Label))
       for (irem in qinmodel) {
-        if (irem %in% unique(datfile.modified$CPUE$index)) next
+        if (irem %in% unique(dat_list$CPUE$index)) next
           remove_q_ctl(irem,
             ctl.in = file.path(sc, i, "em", "em.ctl"),
             ctl.out = file.path(sc, i, "em", "em.ctl"),
@@ -540,7 +668,7 @@ ss3sim_base <- function(iterations, scenarios, f_params,
       }
       #TODO: can get rid of this check if it is done earlier on the original
       # EM and OM files read in.
-      if (any(!unique(datfile.modified$CPUE$index) %in% qinmodel)) {
+      if (any(!unique(dat_list$CPUE$index) %in% qinmodel)) {
         stop("Add q parameters to your EM for all fleets with an index.")
       }
 
