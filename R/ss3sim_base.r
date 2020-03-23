@@ -48,6 +48,9 @@
 #'   If \code{FALSE} then the Hessian will only be calculated for
 #'   bias-adjustment runs thereby saving time.
 #' @param print_logfile Logical. Print a log file?
+#' @param transform_fleets List that specifies how fleets will be merged
+#' for the EM when multiple areas are active.
+#' @param area_fleet_em Area specification for fleets in the EM.
 #' @param sleep A time interval (in seconds) to pause on each iteration. Useful
 #'   if you want to reduce average CPU time -- perhaps because you're working on
 #'   a shared server.
@@ -173,7 +176,7 @@ ss3sim_base <- function(iterations, scenarios, f_params,
   user_recdevs = NULL, user_recdevs_warn = TRUE,
   bias_adjust = FALSE, hess_always = FALSE,
   print_logfile = TRUE, sleep = 0, seed = 21,
-  transformFleets = NULL, area_fleet_em = NULL,
+  transform_fleets = NULL, area_fleet_em = NULL,
   ...) {
 
   # In case ss3sim_base is stopped before finishing:
@@ -279,103 +282,104 @@ ss3sim_base <- function(iterations, scenarios, f_params,
       # with error.
 
       # Here first part for multiple areas:
-      if(!is.null(transformFleets) & is.null(area_fleet_em)) {
-        stop('For multiple areas, transformFleets and fleet_area_em should be specified.')
+      if(!is.null(transform_fleets) & is.null(area_fleet_em)) {
+        stop('For multiple areas, transform_fleets and fleet_area_em should be specified.')
       }
 
-      if(is.null(transformFleets) & !is.null(area_fleet_em)) {
-        stop('For multiple areas, transformFleets and fleet_area_em should be specified.')
+      if(is.null(transform_fleets) & !is.null(area_fleet_em)) {
+        stop('For multiple areas, transform_fleets and fleet_area_em should be specified.')
       }
       
-      activateMultipleAreas = !is.null(transformFleets) & !is.null(area_fleet_em)
-      if(length(transformFleets) == length(unlist(transformFleets))) {
+      activateMultipleAreas = !is.null(transform_fleets) & !is.null(area_fleet_em)
+      if(length(transform_fleets) == length(unlist(transform_fleets))) {
          activateMultipleAreas = FALSE
-        warning('Looks like om and em have the same number of areas. Order of fleets will be kept.')
+        warning('Looks like om and em have the same number of areas. Order of fleets will be assumed
+                to be the same for OM and EM.')
       }
 
       if(activateMultipleAreas) {
 
          # Here we save the lists provided for the EM (used later). 
-         index_params_2 = index_params
-         lcomp_params_2 = lcomp_params
-         agecomp_params_2 = agecomp_params
+         index_params_2 <- index_params
+         lcomp_params_2 <- lcomp_params
+         agecomp_params_2 <- agecomp_params
 
         # Here we create new ()_params lists (for OMs)
 
         # First: create a index to identify fleets for EMs and OMs
-        nFleetIndex = lapply(X = transformFleets, FUN = length)
-        tmpFleetIndex = as.vector(cumsum(nFleetIndex))
-        FleetIndex = list()
-        counter = 1
+        nFleetIndex <- lapply(X = transform_fleets, FUN = length)
+        tmpFleetIndex <- as.vector(cumsum(nFleetIndex))
+        fleet_index <- list()
+        counter <- 1
         for(kj in seq_along(nFleetIndex)) { 
-          FleetIndex[[kj]] = counter:tmpFleetIndex[kj]
-          counter = counter + nFleetIndex[[kj]] 
+          fleet_index[[kj]] <- counter:tmpFleetIndex[kj]
+          counter <- counter + nFleetIndex[[kj]] 
         }
-        names(FleetIndex) = names(nFleetIndex)
+        names(fleet_index) <- names(nFleetIndex)
 
 
          # Create Index Parameters:
-         iFleet = FleetIndex[area_fleet_em[index_params_2$fleets, 'fleetname']] # this might be length > 1
-         jFleet = nFleetIndex[area_fleet_em[index_params_2$fleets, 'fleetname']]
+         iFleet <- fleet_index[area_fleet_em[index_params_2$fleets, 'fleetname']] # this might be length > 1
+         jFleet <- nFleetIndex[area_fleet_em[index_params_2$fleets, 'fleetname']]
 
-         listYears = list() # years info
+         listYears <- list() # years info
          for(kk in seq_along(iFleet)) {
-            tmpList = rep(index_params_2$years[kk], times = jFleet[[kk]])
-            listYears = c(listYears, tmpList)
+            tmpList <- rep(index_params_2$years[kk], times = jFleet[[kk]])
+            listYears <- c(listYears, tmpList)
          }
-         listSd = list() # sd info
+         listSd <- list() # sd info
          for(kk in seq_along(iFleet)) {
-            tmpList = rep(index_params_2$sds_obs[kk], times = jFleet[[kk]])
-            listSd = c(listSd, tmpList)
+            tmpList <- rep(index_params_2$sds_obs[kk], times = jFleet[[kk]])
+            listSd <- c(listSd, tmpList)
          }
          # For OM:
-         index_params = list(fleets = as.vector(unlist(iFleet)),
+         index_params <- list(fleets = as.vector(unlist(iFleet)),
                              years = listYears,
                              sds_obs = listSd)
 
         # Create Lcomp Parameters:
-         iFleet = FleetIndex[area_fleet_em[lcomp_params_2$fleets, 'fleetname']] # this might be length > 1
-         jFleet = nFleetIndex[area_fleet_em[lcomp_params_2$fleets, 'fleetname']]
+         iFleet <- fleet_index[area_fleet_em[lcomp_params_2$fleets, 'fleetname']] # this might be length > 1
+         jFleet <- nFleetIndex[area_fleet_em[lcomp_params_2$fleets, 'fleetname']]
 
-         listYears = list() # years info
+         listYears <- list() # years info
          for(kk in seq_along(iFleet)) {
-            tmpList = rep(lcomp_params_2$years[kk], times = jFleet[[kk]])
-            listYears = c(listYears, tmpList)
+            tmpList <- rep(lcomp_params_2$years[kk], times = jFleet[[kk]])
+            listYears <- c(listYears, tmpList)
          }
-         listNsamp = list() # sd info
+         listNsamp <- list() # sd info
          for(kk in seq_along(iFleet)) {
-            tmpList = rep(lcomp_params_2$Nsamp[kk], times = jFleet[[kk]])
-            listNsamp = c(listNsamp, tmpList)
+            tmpList <- rep(lcomp_params_2$Nsamp[kk], times = jFleet[[kk]])
+            listNsamp <- c(listNsamp, tmpList)
          }
          # For OM:
-         lcomp_params = list(fleets = as.vector(unlist(iFleet)),
+         lcomp_params <- list(fleets = as.vector(unlist(iFleet)),
                              Nsamp = listNsamp,
                              years = listYears,
                              lengthbin_vector = NULL, # bin vector not implemented yet
                              cpar = rep(NA, times = length(unlist(iFleet)))) # cpar here is fake, it does not matter
 
         # Create Agecomp Parameters:
-         iFleet = FleetIndex[area_fleet_em[agecomp_params_2$fleets, 'fleetname']] # this might be length > 1
-         jFleet = nFleetIndex[area_fleet_em[agecomp_params_2$fleets, 'fleetname']]
+         iFleet <- fleet_index[area_fleet_em[agecomp_params_2$fleets, 'fleetname']] # this might be length > 1
+         jFleet <- nFleetIndex[area_fleet_em[agecomp_params_2$fleets, 'fleetname']]
 
-         listYears = list() # years info
+         listYears <- list() # years info
          for(kk in seq_along(iFleet)) {
-            tmpList = rep(agecomp_params_2$years[kk], times = jFleet[[kk]])
-            listYears = c(listYears, tmpList)
+            tmpList <- rep(agecomp_params_2$years[kk], times = jFleet[[kk]])
+            listYears <- c(listYears, tmpList)
          }
-         listNsamp = list() # sd info
+         listNsamp <- list() # sd info
          for(kk in seq_along(iFleet)) {
-            tmpList = rep(agecomp_params_2$Nsamp[kk], times = jFleet[[kk]])
-            listNsamp = c(listNsamp, tmpList)
+            tmpList <- rep(agecomp_params_2$Nsamp[kk], times = jFleet[[kk]])
+            listNsamp <- c(listNsamp, tmpList)
          }
          # For OM:
-         agecomp_params = list(fleets = as.vector(unlist(iFleet)),
+         agecomp_params <- list(fleets = as.vector(unlist(iFleet)),
                              Nsamp = listNsamp,
                              years = listYears,
                              agebin_vector = NULL, # bin vector not implemented yet
                              cpar = rep(NA, times = length(unlist(iFleet)))) # cpar here is fake, it does not matter
 
-         # Info for data in OMs is ready!
+         # Info for data for OM is ready!
 
       }
 
@@ -461,8 +465,8 @@ ss3sim_base <- function(iterations, scenarios, f_params,
 
       # Here merge data create by OM to be used in EM:
       if(activateMultipleAreas) { 
-        expdata = mergeData_multipleArea(iniDat = expdata, transformFleets = transformFleets,
-                                         area_fleet_em = area_fleet_em, FleetIndex = FleetIndex) 
+        expdata <- change_data_areas(ini_dat = expdata, transform_fleets = transform_fleets,
+                                     area_fleet_em = area_fleet_em, fleet_index = fleet_index) 
       } 
 
       #TODO: rather than write expdata to file: dat_list <- expdata; rm(expdata)
