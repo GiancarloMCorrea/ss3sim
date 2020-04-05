@@ -283,18 +283,21 @@ ss3sim_base <- function(iterations, scenarios, f_params,
 
       # Here first part for multiple areas:
       if(!is.null(transform_fleets) & is.null(area_fleet_em)) {
-        stop('For multiple areas, transform_fleets and fleet_area_em should be specified.')
+        stop('For multiple areas, transform_fleets and fleet_area_em should be provided.')
       }
 
       if(is.null(transform_fleets) & !is.null(area_fleet_em)) {
-        stop('For multiple areas, transform_fleets and fleet_area_em should be specified.')
+        stop('For multiple areas, transform_fleets and fleet_area_em should be provided.')
       }
       
       activateMultipleAreas = !is.null(transform_fleets) & !is.null(area_fleet_em)
-      if(length(transform_fleets) == length(unlist(transform_fleets))) {
-         activateMultipleAreas = FALSE
-        warning('Looks like om and em have the same number of areas. Order of fleets will be assumed
-                to be the same for OM and EM.')
+      if(activateMultipleAreas){
+
+        if(length(transform_fleets) == length(unlist(transform_fleets))) {
+          warning('Looks like om and em have the same number of areas. Order of fleets will be assumed
+                  to be the same for OM and EM.')
+        }
+
       }
 
       if(activateMultipleAreas) {
