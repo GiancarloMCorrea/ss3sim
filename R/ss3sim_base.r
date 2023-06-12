@@ -678,16 +678,16 @@ ss3sim_base <- function(iterations,
       ctl_list = ctlem,
     )
     # newlists <- change_year(dat_list, ctl_list) # why is this required? mess everything up
-	newlists = list()
-	newlists$dat_list = dat_list
-	newlists$ctl_list = ctl_list
-	
+    newlists <- list()
+    newlists$dat_list <- dat_list
+    newlists$ctl_list <- ctl_list
+
     r4ss::SS_writedat(
       datlist = newlists$dat_list,
       outfile = file.path(sc, i, "em", "ss3.dat"),
       overwrite = TRUE,
       verbose = FALSE
-    ) 
+    )
     r4ss::SS_writectl(
       ctllist = newlists$ctl_list,
       outfile = file.path(sc, i, "em", "em.ctl"),
