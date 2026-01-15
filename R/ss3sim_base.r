@@ -678,6 +678,78 @@ ss3sim_base <- function(iterations,
       ctl_list = ctlem,
     )
     newlists <- change_year(dat_list, ctl_list)
+	
+	# Here add external growth modelling
+	# IMPORTANT! Only works for pseudoyear approach
+	# -----------------------------------------------
+	if(!is.null(newlists$dat_list$agecomp)) {
+		# Extract CAAL data frame and format it
+		sel_cols = c("fleet", "Lbin_lo", paste0("a", newlists$dat_list$agebin_vector))
+		caal_df = newlists$dat_list$agecomp[ , sel_cols]
+		caal_df = caal_df |> tidyr::pivot_longer(cols = paste0("a", newlists$dat_list$agebin_vector),
+												 names_to = "age", values_to = "n_fish")
+		# Divide age by 4 (pseudoyear), important for K units
+		caal_df = caal_df |> dplyr::filter(n_fish > 0) |> dplyr::mutate(age = as.numeric(gsub("a", "", age))/4) |> 
+						dplyr::slice(rep(1:dplyr::n(), times = n_fish)) |> dplyr::select(-n_fish)
+		
+		# Replace M INIT value:
+		newlists$ctl_list$MG_parms["NatM_p_1_Fem_GP_1", "INIT"] = round(5.4/max(caal_df$age), digits = 2)
+		# Replace M PRIOR value:
+		newlists$ctl_list$MG_parms["NatM_p_1_Fem_GP_1", "PRIOR"] = round(log(5.4/max(caal_df$age)), digits = 2)
+
+		# RTMB code to estimate growth parameters
+		tmb_parameters = list(
+			K = newlists$ctl_list$MG_parms["VonBert_K_Fem_GP_1", "INIT"],    # Initial guess for K
+			Linf = newlists$ctl_list$MG_parms["L_at_Amax_Fem_GP_1", "INIT"], # Initial guess for Linf
+			L1 = newlists$ctl_list$MG_parms["L_at_Amin_Fem_GP_1", "INIT"],    # Initial guess for L1
+			# t0 = 0, # initial guess for t0
+			logSigma = 0
+			)
+		myfun = function(parms) {
+		  RTMB::getAll(caal_df, warn=FALSE)
+		  obs_len = RTMB::OBS(Lbin_lo)
+		  obs_age = RTMB::OBS(age)
+		  SigmaG = exp(parms$logSigma)
+		  ## Initialize joint negative log likelihood
+		  nll <- 0
+		  # Expected length:
+		  # expected_len = parms$Linf * (1 - exp(-parms$K * (obs_age - parms$t0))) # when using t0
+		  expected_len = parms$Linf + (parms$L1 - parms$Linf)*exp(-parms$K*(obs_age - 0.25)) # when using L1
+		  # Calculate nll
+		  nll = nll - sum(dnorm(obs_len, expected_len, sd = SigmaG, log = TRUE))
+		  ## Return
+		  nll
+		}
+		# Estimare growth params
+		obj = RTMB::MakeADFun(myfun, tmb_parameters, silent=TRUE)
+		opt = tryCatch(stats::nlminb(obj$par, obj$fn, obj$gr), error = function(e) conditionMessage(e))
+		if(!is.character(opt)) { # if RTMB code did not crash
+		  if(opt$convergence == 0) { # converged
+			# Replace growth INIT values:
+			newlists$ctl_list$MG_parms["VonBert_K_Fem_GP_1", "INIT"] = round(opt$par[1], digits = 2)
+			newlists$ctl_list$MG_parms["L_at_Amax_Fem_GP_1", "INIT"] = round(opt$par[2], digits = 2)
+			newlists$ctl_list$MG_parms["L_at_Amin_Fem_GP_1", "INIT"] = round(opt$par[3], digits = 2) # when using L1, same results as t0
+			# newlists$ctl_list$MG_parms["L_at_Amin_Fem_GP_1", "INIT"] = round(opt$par[2] * (1 - exp(-opt$par[1]*(0.25 - opt$par[3]))), digits = 2) # when using t0
+		  } 
+		  # Dataframe with CAAL data and growth estimates
+		  caal_df = caal_df |> dplyr::mutate(crashed = FALSE, convergence = opt$convergence)
+		} else {
+		  # Dataframe with CAAL data and growth estimates
+		  caal_df = caal_df |> dplyr::mutate(crashed = TRUE, convergence = 4)
+		}
+		# Add information on estimated parameters or parameters used in EM
+		sc_name = strsplit(scenarioName, split = "/")[[1]]
+		sc_name = sc_name[length(sc_name)] # extract scenario name and remove path
+		caal_df = caal_df |> dplyr::mutate(K = newlists$ctl_list$MG_parms["VonBert_K_Fem_GP_1", "INIT"], 
+									 Linf = newlists$ctl_list$MG_parms["L_at_Amax_Fem_GP_1", "INIT"], 
+									 L1_t0 = newlists$ctl_list$MG_parms["L_at_Amin_Fem_GP_1", "INIT"],
+									 scenario = sc_name, replicate = i)	
+		# Save CAAL data frame:
+		saveRDS(caal_df, file = file.path("caal_data", paste0(sc_name, "-", i, ".rds")))
+	}
+	
+	# -----------------------------------------------
+	# Continue code...
     r4ss::SS_writedat(
       datlist = newlists$dat_list,
       outfile = file.path(sc, i, "em", "ss3.dat"),

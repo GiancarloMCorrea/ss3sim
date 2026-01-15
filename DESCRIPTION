@@ -54,6 +54,7 @@ Imports:
     stringi,
     tibble,
     tidyr,
+	RTMB,
     utils
 Suggests:
     doParallel,
