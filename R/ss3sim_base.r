@@ -738,7 +738,7 @@ ss3sim_base <- function(iterations,
 		  caal_df = caal_df |> dplyr::mutate(crashed = TRUE, convergence = 4)
 		}
 		# Add information on estimated parameters or parameters used in EM
-		sc_name = strsplit(scenarioName, split = "/")[[1]]
+		sc_name = strsplit(scenarios, split = "/")[[1]]
 		sc_name = sc_name[length(sc_name)] # extract scenario name and remove path
 		caal_df = caal_df |> dplyr::mutate(K = newlists$ctl_list$MG_parms["VonBert_K_Fem_GP_1", "INIT"], 
 									 Linf = newlists$ctl_list$MG_parms["L_at_Amax_Fem_GP_1", "INIT"], 
