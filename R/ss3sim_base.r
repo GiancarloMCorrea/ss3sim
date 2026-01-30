@@ -197,6 +197,7 @@ ss3sim_base <- function(iterations,
                         user_recdevs = NULL,
                         user_recdevs_warn = TRUE,
                         bias_adjust = FALSE,
+						caal_in = TRUE, # specific for age sampling impacts paper
                         sleep = 0,
                         seed = 21,
                         extras = " ") {
@@ -683,6 +684,7 @@ ss3sim_base <- function(iterations,
 	# IMPORTANT! Only works for pseudoyear approach
 	# -----------------------------------------------
 	if(!is.null(newlists$dat_list$agecomp)) {
+
 		# Extract CAAL data frame and format it
 		sel_cols = c("fleet", "Lbin_lo", paste0("a", newlists$dat_list$agebin_vector))
 		caal_df = newlists$dat_list$agecomp[ , sel_cols]
@@ -746,6 +748,11 @@ ss3sim_base <- function(iterations,
 									 scenario = sc_name, replicate = i)	
 		# Save CAAL data frame:
 		saveRDS(caal_df, file = file.path("caal_data", paste0(sc_name, "-", i, ".rds")))
+		
+		# Remove CAAL data if not included in model
+		if(!caal_in) {
+			newlists$dat_list$agecomp = NULL
+		}
 	}
 	
 	# -----------------------------------------------

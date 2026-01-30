@@ -457,7 +457,8 @@ sample_calcomp <- function(dat_list, exp_vals_list, outfile = NULL, fleets,
 
   # add the new length comp ----
   if (!is.null(lencomp_marginal)) {
-    newfile[["lencomp"]] <- rbind(CAL_lencomp, lencomp_marginal)
+    # IMPORTANT: specific for age samp effects paper. Do not merge it in order to avoid duplicate observations
+    # newfile[["lencomp"]] <- rbind(CAL_lencomp, lencomp_marginal)
   } else {
     newfile[["lencomp"]] <- CAL_lencomp
   }
