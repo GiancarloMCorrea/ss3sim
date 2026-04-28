@@ -695,9 +695,9 @@ ss3sim_base <- function(iterations,
 						dplyr::slice(rep(1:dplyr::n(), times = n_fish)) |> dplyr::select(-n_fish)
 		
 		# Replace M INIT value:
-		newlists$ctl_list$MG_parms["NatM_p_1_Fem_GP_1", "INIT"] = round(5.4/max(caal_df$age), digits = 2)
+		# newlists$ctl_list$MG_parms["NatM_p_1_Fem_GP_1", "INIT"] = round(5.4/max(caal_df$age), digits = 2)
 		# Replace M PRIOR value:
-		newlists$ctl_list$MG_parms["NatM_p_1_Fem_GP_1", "PRIOR"] = round(log(5.4/max(caal_df$age)), digits = 2)
+		# newlists$ctl_list$MG_parms["NatM_p_1_Fem_GP_1", "PRIOR"] = round(log(5.4/max(caal_df$age)), digits = 2)
 
 		# RTMB code to estimate growth parameters
 		tmb_parameters = list(
