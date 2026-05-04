@@ -704,6 +704,7 @@ ss3sim_base <- function(iterations,
 			K = newlists$ctl_list$MG_parms["VonBert_K_Fem_GP_1", "INIT"],    # Initial guess for K
 			Linf = newlists$ctl_list$MG_parms["L_at_Amax_Fem_GP_1", "INIT"], # Initial guess for Linf
 			L1 = newlists$ctl_list$MG_parms["L_at_Amin_Fem_GP_1", "INIT"],    # Initial guess for L1
+			Rich = newlists$ctl_list$MG_parms["Richards_Fem_GP_1", "INIT"],    # Initial guess for Richards parameter
 			# t0 = 0, # initial guess for t0
 			logSigma = 0
 			)
@@ -715,8 +716,9 @@ ss3sim_base <- function(iterations,
 		  ## Initialize joint negative log likelihood
 		  nll <- 0
 		  # Expected length:
-		  # expected_len = parms$Linf * (1 - exp(-parms$K * (obs_age - parms$t0))) # when using t0
-		  expected_len = parms$Linf + (parms$L1 - parms$Linf)*exp(-parms$K*(obs_age - 0.25)) # when using L1
+		  # expected_len = parms$Linf * (1 - exp(-parms$K * (obs_age - parms$t0))) # when using t0 vB
+		  # expected_len = parms$Linf + (parms$L1 - parms$Linf)*exp(-parms$K*(obs_age - 0.25)) # when using L1 vB
+		  expected_len = (parms$Linf^parms$Rich + (parms$L1^parms$Rich - parms$Linf^parms$Rich)*exp(-parms$K*(obs_age - 0.25)))^(1/parms$Rich) # when using L1 Richards
 		  # Calculate nll
 		  nll = nll - sum(dnorm(obs_len, expected_len, sd = SigmaG, log = TRUE))
 		  ## Return
@@ -731,6 +733,7 @@ ss3sim_base <- function(iterations,
 			newlists$ctl_list$MG_parms["VonBert_K_Fem_GP_1", "INIT"] = round(opt$par[1], digits = 2)
 			newlists$ctl_list$MG_parms["L_at_Amax_Fem_GP_1", "INIT"] = round(opt$par[2], digits = 2)
 			newlists$ctl_list$MG_parms["L_at_Amin_Fem_GP_1", "INIT"] = round(opt$par[3], digits = 2) # when using L1, same results as t0
+			newlists$ctl_list$MG_parms["Richards_Fem_GP_1", "INIT"] = round(opt$par[4], digits = 2) # when using L1, same results as t0
 			# newlists$ctl_list$MG_parms["L_at_Amin_Fem_GP_1", "INIT"] = round(opt$par[2] * (1 - exp(-opt$par[1]*(0.25 - opt$par[3]))), digits = 2) # when using t0
 		  } 
 		  # Dataframe with CAAL data and growth estimates
@@ -745,6 +748,7 @@ ss3sim_base <- function(iterations,
 		caal_df = caal_df |> dplyr::mutate(K = newlists$ctl_list$MG_parms["VonBert_K_Fem_GP_1", "INIT"], 
 									 Linf = newlists$ctl_list$MG_parms["L_at_Amax_Fem_GP_1", "INIT"], 
 									 L1_t0 = newlists$ctl_list$MG_parms["L_at_Amin_Fem_GP_1", "INIT"],
+									 Rich = newlists$ctl_list$MG_parms["Richards_Fem_GP_1", "INIT"],
 									 scenario = sc_name, replicate = i)	
 		# Save CAAL data frame:
 		saveRDS(caal_df, file = file.path("caal_data", paste0(sc_name, "-", i, ".rds")))
